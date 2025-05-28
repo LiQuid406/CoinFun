@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Head Tails Toss Game - Coin Fun</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00e5ff;
+            --neon-magenta: #ff00ff;
+            --neon-green: #39ff14;
+            --neon-yellow: #fff200;
+            --dark-bg: #0a041a;
+            --light-text: #f0f0f0;
+            --coin-silver: #d3d3d3;
+            --coin-shadow: #a9a9a9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--light-text);
+            overflow: hidden;
+        }
+
+        /* --- Splash Screen --- */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--dark-bg);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 200; opacity: 1; transition: opacity 0.5s ease-out;
+        }
+        #splash-screen.hidden { opacity: 0; pointer-events: none; }
+        .splash-title {
+            font-family: 'Orbitron', sans-serif; font-size: 48px; color: var(--neon-green);
+            text-shadow: 0 0 5px var(--neon-green), 0 0 10px var(--neon-green), 0 0 20px var(--neon-green);
+            animation: splash-pulse 1.5s infinite alternate; margin-bottom: 20px;
+        }
+        @keyframes splash-pulse { from { transform: scale(0.95); opacity: 0.8; } to { transform: scale(1.05); opacity: 1; } }
+        .splash-coin {
+            width: 80px; height: 80px; background-color: var(--neon-yellow); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 40px; font-weight: bold; color: var(--dark-bg);
+            box-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow);
+            animation: splash-coin-spin 3s linear infinite;
+        }
+        @keyframes splash-coin-spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+
+        .mobile-frame {
+            width: 100%; max-width: 420px; height: 100vh; max-height: 900px;
+            background-color: var(--dark-bg); border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; position: relative; overflow: hidden;
+        }
+        .mobile-frame.content-hidden { display: none; }
+
+        .status-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 15px; background-color: rgba(0,0,0,0.2);
+            font-size: 14px; color: var(--neon-cyan); text-shadow: 0 0 3px var(--neon-cyan);
+            flex-shrink: 0;
+        }
+        .status-bar .time { font-weight: 700; }
+        .status-icons span { margin-left: 8px; }
+
+        .app-header {
+            display: flex; align-items: center; padding: 15px;
+            background-color: var(--neon-green); color: var(--dark-bg);
+            font-weight: 700; flex-shrink: 0;
+        }
+        .app-header .back-button { font-size: 24px; margin-right: 15px; cursor: pointer; }
+        .app-header h1 { font-size: 22px; text-align: center; flex-grow: 1; }
+
+        .game-container {
+            flex-grow: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: flex-start; padding: 15px; text-align: center;
+            background: linear-gradient(to bottom, var(--dark-bg) 0%, #1a0d36 100%);
+            position: relative; overflow-y: auto;
+        }
+
+        #points-display {
+            font-size: 24px; font-weight: 700; color: var(--neon-yellow);
+            text-shadow: 0 0 5px var(--neon-yellow), 0 0 10px var(--neon-yellow);
+            margin-bottom: 10px; padding: 5px 15px; background-color: rgba(0,0,0,0.3);
+            border-radius: 8px; border: 1px solid var(--neon-yellow);
+        }
+        .prediction-area { margin-bottom: 15px; display: flex; gap: 10px; justify-content: center; }
+        .prediction-button {
+            padding: 10px 20px; font-size: 16px; font-weight: 700;
+            border: 2px solid var(--neon-cyan); color: var(--neon-cyan);
+            background-color: transparent; border-radius: 8px; cursor: pointer;
+            text-shadow: 0 0 3px var(--neon-cyan); transition: all 0.2s ease;
+        }
+        .prediction-button.selected { background-color: var(--neon-cyan); color: var(--dark-bg); box-shadow: 0 0 8px var(--neon-cyan); }
+        .prediction-button:disabled { border-color: #555; color: #555; text-shadow: none; cursor: not-allowed; }
+
+        #result-text {
+            font-size: 32px; font-weight: 700; padding: 8px 15px; background-color: #000;
+            color: var(--light-text); border-radius: 8px; margin-bottom: 15px;
+            border: 2px solid var(--neon-magenta);
+            box-shadow: 0 0 10px var(--neon-magenta), inset 0 0 5px var(--neon-magenta);
+            min-width: 150px; text-align: center;
+        }
+
+        .coin-wrapper { perspective: 1200px; margin-bottom: 20px; }
+        .coin {
+            width: 140px; height: 140px; position: relative;
+            transform-style: preserve-3d; transition: transform 2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .coin-side {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            background-color: var(--coin-silver); border: 4px solid var(--coin-shadow);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3), inset 0 0 10px rgba(0,0,0,0.2);
+        }
+        .coin-side svg { width: 85%; height: 85%; }
+        .coin-heads { transform: rotateY(0deg); }
+        .coin-tails { transform: rotateY(180deg); }
+
+        .action-button {
+            padding: 12px 25px; font-size: 18px; font-weight: 700; color: var(--dark-bg);
+            background-color: var(--neon-green); border: none; border-radius: 10px; cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green), inset 0 0 5px rgba(255,255,255,0.5);
+            transition: all 0.2s ease; margin-bottom: 15px;
+        }
+        .action-button:hover:not(:disabled) { background-color: #6aff50; box-shadow: 0 0 15px var(--neon-green), 0 0 30px var(--neon-green), inset 0 0 8px rgba(255,255,255,0.7); }
+        .action-button:disabled { background-color: #555; color: #999; box-shadow: none; cursor: not-allowed; }
+
+        .score-board {
+            display: flex; justify-content: space-around; width: 100%; max-width: 300px;
+            font-size: 16px; font-weight: 700; margin-bottom: 15px;
+        }
+        .score { color: var(--neon-cyan); text-shadow: 0 0 5px var(--neon-cyan); }
+
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
+        .control-button {
+            padding: 10px 15px; font-size: 16px; font-weight: 700;
+            border: 2px solid var(--neon-magenta); color: var(--neon-magenta);
+            background-color: transparent; border-radius: 8px; cursor: pointer;
+            text-shadow: 0 0 3px var(--neon-magenta);
+            box-shadow: 0 0 5px var(--neon-magenta), inset 0 0 3px var(--neon-magenta);
+            transition: all 0.2s ease;
+        }
+        .control-button:hover:not(:disabled) { background-color: var(--neon-magenta); color: var(--dark-bg); box-shadow: 0 0 10px var(--neon-magenta), 0 0 15px var(--neon-magenta); }
+        .control-button:disabled { border-color: #777; color: #777; text-shadow: none; box-shadow: none; cursor: not-allowed; }
+        #resume-button { display: none; }
+
+        #watch-ad-container {
+            position: absolute; right: 15px; top: calc(50% - 50px); transform: translateY(-50%);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #watch-ad-button {
+            padding: 10px 12px; font-size: 14px; font-weight: 700;
+            border: 2px solid var(--neon-yellow); color: var(--neon-yellow);
+            background-color: rgba(0,0,0,0.4); border-radius: 8px; cursor: pointer;
+            text-shadow: 0 0 3px var(--neon-yellow);
+            box-shadow: 0 0 5px var(--neon-yellow), inset 0 0 3px var(--neon-yellow);
+            transition: all 0.2s ease; min-width: 100px;
+        }
+        #watch-ad-button:hover:not(:disabled) { background-color: var(--neon-yellow); color: var(--dark-bg); box-shadow: 0 0 10px var(--neon-yellow), 0 0 15px var(--neon-yellow); }
+        #watch-ad-button:disabled { border-color: #777; color: #777; text-shadow: none; box-shadow: none; cursor: not-allowed; background-color: rgba(50,50,50,0.4); }
+        #ad-cooldown-message { font-size: 12px; color: var(--neon-yellow); height: 18px; margin-top: 5px; text-align: center; }
+
+        .pause-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); display: none;
+            justify-content: center; align-items: center; z-index: 100;
+        }
+        .pause-text {
+            font-size: 48px; font-weight: 700; color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan), 0 0 30px var(--neon-cyan);
+            animation: pulse 1.5s infinite alternate;
+        }
+        @keyframes pulse { from { opacity: 0.7; transform: scale(0.95); } to { opacity: 1; transform: scale(1.05); } }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
+            border-top: 4px solid var(--neon-cyan); width: 30px; height: 30px;
+            animation: spin 1s linear infinite; margin: 10px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .ad-simulation-box { /* Used for simulation AND real ad status */
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background-color: #111; border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 20px var(--neon-cyan);
+            padding: 30px; border-radius: 10px; z-index: 150;
+            text-align: center; color: var(--light-text);
+        }
+        .ad-simulation-box p { margin-bottom: 15px; font-size: 18px; }
+        .ad-simulation-box button {
+            padding: 8px 15px; background-color: var(--neon-cyan);
+            color: var(--dark-bg); border: none; border-radius: 5px; font-weight: bold;
+        }
+
+        .nav-bar-placeholder {
+            display: flex; justify-content: space-around; align-items: center;
+            padding: 10px 0; background-color: rgba(0,0,0,0.3);
+            color: #555; font-size: 24px; flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="splash-screen">
+        <div class="splash-title">Coin Fun</div>
+        <div class="splash-coin">CF</div>
+    </div>
+
+    <div id="mobile-frame" class="mobile-frame content-hidden">
+        <div class="status-bar">
+            <span id="status-time" class="time">1:00 PM</span>
+            <div class="status-icons"><span>📶</span><span>VoLTE</span><span>🔋</span></div>
+        </div>
+        <div class="app-header">
+            <span class="back-button" onclick="alert('Back button clicked!')">←</span>
+            <h1>Head Tails Toss</h1>
+        </div>
+        <div class="game-container">
+            <div id="points-display">Points: 0</div>
+            <div class="prediction-area">
+                <button id="guess-heads-button" class="prediction-button selected">Guess Heads</button>
+                <button id="guess-tails-button" class="prediction-button">Guess Tails</button>
+            </div>
+            <div id="result-text" class="result-text">Make a Guess!</div>
+            <div class="coin-wrapper">
+                <div id="coin" class="coin">
+                    <div class="coin-side coin-heads"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="var(--coin-silver)" stroke="var(--coin-shadow)" stroke-width="2"/><text x="50" y="68" font-size="50" text-anchor="middle" fill="#333" font-family="Rajdhani, sans-serif" font-weight="bold">H</text></svg></div>
+                    <div class="coin-side coin-tails"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="var(--coin-silver)" stroke="var(--coin-shadow)" stroke-width="2"/><text x="50" y="68" font-size="50" text-anchor="middle" fill="#333" font-family="Rajdhani, sans-serif" font-weight="bold">T</text></svg></div>
+                </div>
+            </div>
+            <button id="toss-button" class="action-button">TAP HERE TO TOSS</button>
+            <div class="score-board">
+                <div class="score">Heads Count: <span id="heads-occurrences">0</span></div>
+                <div class="score">Tails Count: <span id="tails-occurrences">0</span></div>
+            </div>
+            <div class="controls">
+                <button id="pause-button" class="control-button">Pause</button>
+                <button id="resume-button" class="control-button">Resume</button>
+            </div>
+            <div id="watch-ad-container">
+                <button id="watch-ad-button" class="ad-button">Watch Ad</button>
+                <div id="ad-cooldown-message" class="ad-cooldown-message"></div>
+            </div>
+        </div>
+        <div id="pause-overlay" class="pause-overlay"><div class="pause-text">PAUSED</div></div>
+        <div id="ad-simulation-popup" class="ad-simulation-box" style="display: none;">
+            <p id="ad-simulation-text">Loading Ad...</p>
+            <div id="ad-spinner" class="spinner" style="display: none;"></div>
+            <button id="close-ad-popup-button" style="display: none;">Close</button>
+        </div>
+        <div class="nav-bar-placeholder"><span>□</span><span>○</span><span>ᐊ</span></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const splashScreen = document.getElementById('splash-screen');
+            const mobileFrame = document.getElementById('mobile-frame');
+
+            setTimeout(() => {
+                splashScreen.classList.add('hidden');
+                setTimeout(() => {
+                     mobileFrame.classList.remove('content-hidden');
+                     mobileFrame.style.display = 'flex';
+                }, 500);
+            }, 3000);
+
+            const coin = document.getElementById('coin');
+            const tossButton = document.getElementById('toss-button');
+            const resultText = document.getElementById('result-text');
+            const headsOccurrencesDisplay = document.getElementById('heads-occurrences');
+            const tailsOccurrencesDisplay = document.getElementById('tails-occurrences');
+            const pointsDisplay = document.getElementById('points-display');
+            const guessHeadsButton = document.getElementById('guess-heads-button');
+            const guessTailsButton = document.getElementById('guess-tails-button');
+            const pauseButton = document.getElementById('pause-button');
+            const resumeButton = document.getElementById('resume-button');
+            const pauseOverlay = document.getElementById('pause-overlay');
+            const watchAdButton = document.getElementById('watch-ad-button');
+            const adCooldownMessage = document.getElementById('ad-cooldown-message');
+            const adSimulationPopup = document.getElementById('ad-simulation-popup');
+            const adSimulationText = document.getElementById('ad-simulation-text');
+            const adSpinner = document.getElementById('ad-spinner');
+            const closeAdPopupButton = document.getElementById('close-ad-popup-button');
+
+            let headsOccurrences = 0, tailsOccurrences = 0, points = 0;
+            let userGuess = 'heads', isFlipping = false, currentRotationY = 0, currentFace = 'heads';
+            let isPaused = false, adCooldownActive = false, adCooldownTimerId;
+            const AD_COOLDOWN_SECONDS = 5, POINTS_FOR_CORRECT_GUESS = 10, POINTS_FOR_INCORRECT_GUESS = -5;
+
+            // --- AdMob Integration ---
+            // IMPORTANT: Replace with your Production Ad Unit ID
+            const ADMOB_REWARDED_AD_UNIT_ID_USER = 'ca-app-pub-3270323775775261/4769756113';
+            const ADMOB_REWARDED_AD_UNIT_ID_TEST = 'ca-app-pub-3940256099942544/5224354917';
+            const ADMOB_AD_ID_TO_USE = ADMOB_REWARDED_AD_UNIT_ID_TEST; // CHANGE TO _USER FOR PRODUCTION
+
+            let isRealAdLoading = false;
+            let realAdLoaded = false;
+
+            function initializeAdMobListeners() {
+                if (window.admob && window.admob.rewarded && typeof admob.rewarded.on === 'function') { // Check for .on method for events
+                    console.log("AdMob Plugin detected. Initializing Rewarded Ad listeners.");
+
+                    admob.rewarded.on('load', () => {
+                        console.log('AdMob Rewarded Ad: LOADED');
+                        realAdLoaded = true;
+                        isRealAdLoading = false;
+                        adSpinner.style.display = 'none';
+                        adSimulationText.textContent = 'Ad Ready. Showing...';
+                        showRealRewardedAd();
+                    });
+
+                    admob.rewarded.on('loadfail', (err) => {
+                        console.error('AdMob Rewarded Ad: LOAD_FAIL', err);
+                        realAdLoaded = false;
+                        isRealAdLoading = false;
+                        adSpinner.style.display = 'none';
+                        adSimulationText.textContent = 'Ad failed to load. Try later.';
+                        closeAdPopupButton.style.display = 'inline-block';
+                        cleanupAfterAdAttempt(false); // Ad failed, cleanup and start cooldown
+                    });
+
+                    admob.rewarded.on('open', () => {
+                        console.log('AdMob Rewarded Ad: OPENED');
+                        // Game sound/music should be paused here
+                    });
+
+                    admob.rewarded.on('close', () => {
+                        console.log('AdMob Rewarded Ad: CLOSED');
+                        realAdLoaded = false; // Ad is consumed
+                        cleanupAfterAdAttempt(true); // Ad closed (reward may or may not have happened)
+                        // Optional: Preload next ad
+                        // loadRealRewardedAd(false); // Don't show popup for preloading
+                    });
+
+                    admob.rewarded.on('reward', (event) => {
+                        console.log('AdMob Rewarded Ad: REWARD', event);
+                        // User earned reward. Grant points or other benefits here.
+                        // e.g., points += 20; updateStatsDisplay();
+                        // The 'close' event will handle cooldown and UI re-enable.
+                    });
+                } else {
+                    console.log("AdMob plugin or specific Rewarded Ad API not fully available.");
+                }
+            }
+            
+            function loadRealRewardedAd(showStatusPopup = true) {
+                if (!(window.admob && window.admob.rewarded && typeof admob.rewarded.load === 'function')) {
+                    console.log("AdMob load function not available. Falling back to simulation.");
+                    simulateAd();
+                    return;
+                }
+                if (isRealAdLoading || realAdLoaded) {
+                    console.log("Ad load already in progress or ad loaded.");
+                    if(realAdLoaded && showStatusPopup) showRealRewardedAd(); // If already loaded and user initiated, show it
+                    return;
+                }
+
+                isRealAdLoading = true;
+                console.log('Attempting to load AdMob Rewarded Ad with ID:', ADMOB_AD_ID_TO_USE);
+
+                if (showStatusPopup) {
+                    adSimulationPopup.style.display = 'block';
+                    adSimulationText.textContent = 'Loading Real Ad...';
+                    adSpinner.style.display = 'block';
+                    closeAdPopupButton.style.display = 'none';
+                }
+
+                admob.rewarded.load({ id: ADMOB_AD_ID_TO_USE })
+                    .catch(e => { // This catch is for the .load() promise itself, not the 'loadfail' event
+                        console.error("Error calling admob.rewarded.load promise:", e);
+                        isRealAdLoading = false;
+                        if (showStatusPopup) {
+                            adSpinner.style.display = 'none';
+                            adSimulationText.textContent = 'Ad plugin error. Using simulation.';
+                            closeAdPopupButton.style.display = 'inline-block';
+                            setTimeout(() => { if (adSimulationPopup.style.display === 'block') simulateAd(); }, 2000);
+                        } else {
+                            cleanupAfterAdAttempt(false); // Silently fail preload
+                        }
+                    });
+            }
+
+            function showRealRewardedAd() {
+                if (!(window.admob && window.admob.rewarded && typeof admob.rewarded.show === 'function')) {
+                     console.log("AdMob show function not available.");
+                     cleanupAfterAdAttempt(false); return;
+                }
+                if (!realAdLoaded) {
+                    console.log("Real ad not loaded. Attempting to load first.");
+                    loadRealRewardedAd(true); // Show status popup for this user-initiated show
+                    return;
+                }
+
+                console.log('Attempting to show AdMob Rewarded Ad...');
+                if(adSimulationPopup.style.display !== 'block') adSimulationPopup.style.display = 'block'; // ensure it is visible for status
+                adSimulationText.textContent = 'Showing Real Ad...';
+                adSpinner.style.display = 'none';
+                closeAdPopupButton.style.display = 'none';
+
+                admob.rewarded.show()
+                    .catch(e => {
+                        console.error("Error calling admob.rewarded.show:", e);
+                        adSimulationText.textContent = 'Failed to show ad. Try again.';
+                        closeAdPopupButton.style.display = 'inline-block';
+                        cleanupAfterAdAttempt(false);
+                    });
+            }
+
+            function simulateAd() {
+                console.log("Running ad simulation.");
+                adSimulationPopup.style.display = 'block';
+                adSimulationText.textContent = 'Loading Simulated Ad...';
+                adSpinner.style.display = 'block';
+                closeAdPopupButton.style.display = 'none';
+
+                setTimeout(() => {
+                    adSimulationText.textContent = 'Simulated Ad Playing...';
+                    setTimeout(() => {
+                        adSpinner.style.display = 'none';
+                        adSimulationText.textContent = 'Simulated Ad Finished!';
+                        closeAdPopupButton.style.display = 'inline-block';
+                        // For simulation, clicking close will trigger cleanup
+                    }, 3000);
+                }, 1500);
+            }
+            
+            function cleanupAfterAdAttempt(adSuccessfullyClosedOrRewarded) {
+                // This function is called after an ad attempt (real or simulated via close button)
+                adSimulationPopup.style.display = 'none'; // Hide the status/simulation box
+                isRealAdLoading = false; 
+                // realAdLoaded is reset by 'close' or if it fails to show
+
+                if (!isPaused) {
+                    tossButton.disabled = isFlipping;
+                    pauseButton.disabled = false;
+                    guessHeadsButton.disabled = isFlipping;
+                    guessTailsButton.disabled = isFlipping;
+                }
+                // Cooldown starts regardless of ad success to prevent spamming
+                startAdCooldown();
+            }
+            
+            // --- End AdMob Integration ---
+
+
+            function updateStatusBarTime() { /* ... same ... */ }
+            function updateStatsDisplay() { /* ... same ... */ }
+            function selectGuess(guess) { /* ... same ... */ }
+            function flipCoin() { /* ... same ... */ }
+            function startAdCooldown() { /* ... same, but ensure watchAdButton is re-enabled if not paused */
+                 adCooldownActive = true;
+                watchAdButton.disabled = true;
+                let secondsRemaining = AD_COOLDOWN_SECONDS;
+                adCooldownMessage.textContent = `Next ad in ${secondsRemaining}s`;
+                watchAdButton.textContent = `Wait ${secondsRemaining}s`;
+
+                adCooldownTimerId = setInterval(() => {
+                    secondsRemaining--;
+                    if (secondsRemaining > 0) {
+                        adCooldownMessage.textContent = `Next ad in ${secondsRemaining}s`;
+                        watchAdButton.textContent = `Wait ${secondsRemaining}s`;
+                    } else {
+                        clearInterval(adCooldownTimerId);
+                        adCooldownActive = false;
+                        if (!isPaused) watchAdButton.disabled = false; // Re-enable here
+                        adCooldownMessage.textContent = '';
+                        watchAdButton.textContent = 'Watch Ad';
+                    }
+                }, 1000);
+            }
+
+            // --- Event Listeners ---
+            updateStatusBarTime(); setInterval(updateStatusBarTime, 30000);
+            guessHeadsButton.addEventListener('click', () => selectGuess('heads'));
+            guessTailsButton.addEventListener('click', () => selectGuess('tails'));
+            tossButton.addEventListener('click', flipCoin);
+
+            pauseButton.addEventListener('click', () => {
+                if (isFlipping) return;
+                isPaused = true;
+                pauseOverlay.style.display = 'flex';
+                pauseButton.style.display = 'none';
+                resumeButton.style.display = 'inline-block';
+                tossButton.disabled = true;
+                watchAdButton.disabled = true;
+                guessHeadsButton.disabled = true;
+                guessTailsButton.disabled = true;
+            });
+
+            resumeButton.addEventListener('click', () => {
+                isPaused = false;
+                pauseOverlay.style.display = 'none';
+                resumeButton.style.display = 'none';
+                pauseButton.style.display = 'inline-block';
+                if (!isFlipping) {
+                    tossButton.disabled = false;
+                    guessHeadsButton.disabled = false;
+                    guessTailsButton.disabled = false;
+                }
+                if (!adCooldownActive) watchAdButton.disabled = false;
+            });
+
+            watchAdButton.addEventListener('click', () => {
+                if (adCooldownActive || isPaused || isFlipping) return;
+
+                tossButton.disabled = true;
+                pauseButton.disabled = true;
+                guessHeadsButton.disabled = true;
+                guessTailsButton.disabled = true;
+                watchAdButton.disabled = true; // Disable itself during ad process
+
+                if (window.admob && window.admob.rewarded) {
+                    showRealRewardedAd(); // This will load if not already loaded
+                } else {
+                    console.log("AdMob plugin not detected or configured, using simulation.");
+                    simulateAd();
+                }
+            });
+
+            closeAdPopupButton.addEventListener('click', () => {
+                // This button is mainly for the simulation or if a real ad fails *before showing*
+                // and the user needs to dismiss the status popup.
+                // If a real ad shows, its 'close' event handles cleanup.
+                cleanupAfterAdAttempt(false); // Treat as non-successful ad display for this direct close
+            });
+
+            // --- Initialize ---
+            updateStatsDisplay();
+            resultText.textContent = 'Make a Guess!';
+            selectGuess('heads');
+            coin.style.transform = 'rotateY(0deg)';
+            currentRotationY = 0;
+            currentFace = 'heads';
+            
+            // Initialize AdMob listeners after DOM is ready
+            // It's better if AdMob SDK/plugin itself is initialized on 'deviceready' for Cordova
+            // For now, we just set up JS listeners.
+             if (window.cordova) { // Check if running in Cordova environment
+                document.addEventListener('deviceready', initializeAdMobListeners, false);
+            } else { // Fallback for browser testing (AdMob won't work, but listeners can be set up)
+                initializeAdMobListeners();
+            }
+            // Preload an ad if AdMob is available (optional, do it silently)
+            // setTimeout(() => { // Give a little time for plugin to be fully ready
+            //     if (window.admob && window.admob.rewarded) {
+            //         loadRealRewardedAd(false); // false = don't show status popup for preloading
+            //     }
+            // }, 1000);
+
+
+            // --- Copying existing identical functions ---
+            function updateStatusBarTime() {
+                const timeElement = document.getElementById('status-time');
+                if (!timeElement) return;
+                const now = new Date();
+                timeElement.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            }
+           
+            function updateStatsDisplay() {
+                headsOccurrencesDisplay.textContent = headsOccurrences;
+                tailsOccurrencesDisplay.textContent = tailsOccurrences;
+                pointsDisplay.textContent = `Points: ${points}`;
+            }
+
+            function selectGuess(guess) {
+                if (isFlipping || isPaused) return;
+                userGuess = guess;
+                if (guess === 'heads') {
+                    guessHeadsButton.classList.add('selected');
+                    guessTailsButton.classList.remove('selected');
+                } else {
+                    guessTailsButton.classList.add('selected');
+                    guessHeadsButton.classList.remove('selected');
+                }
+            }
+
+            function flipCoin() {
+                if (isFlipping || isPaused) return;
+
+                isFlipping = true;
+                tossButton.disabled = true;
+                guessHeadsButton.disabled = true;
+                guessTailsButton.disabled = true;
+                resultText.textContent = "Flipping...";
+
+                const isHeadsOutcome = Math.random() < 0.5;
+                const outcome = isHeadsOutcome ? 'heads' : 'tails';
+                
+                const fullSpins = (3 + Math.floor(Math.random() * 3)) * 360;
+                let targetRotation = currentRotationY + fullSpins;
+
+                if (outcome === 'tails' && (currentRotationY % 360 === 0)) {
+                    targetRotation += 180;
+                } else if (outcome === 'heads' && (currentRotationY % 360 !== 0)) {
+                    targetRotation += 180;
+                }
+                
+                coin.style.transform = `rotateY(${targetRotation}deg)`;
+                currentRotationY = targetRotation;
+                currentFace = outcome;
+
+                setTimeout(() => {
+                    resultText.textContent = outcome.charAt(0).toUpperCase() + outcome.slice(1) + "!";
+                    if (outcome === 'heads') headsOccurrences++; else tailsOccurrences++;
+
+                    if (outcome === userGuess) {
+                        points += POINTS_FOR_CORRECT_GUESS;
+                        resultText.textContent += " You guessed right!";
+                    } else {
+                        points += POINTS_FOR_INCORRECT_GUESS;
+                        resultText.textContent += " Better luck next time!";
+                    }
+                    if (points < 0) points = 0;
+
+                    updateStatsDisplay();
+                    isFlipping = false;
+                    if (!isPaused) {
+                        tossButton.disabled = false;
+                        guessHeadsButton.disabled = false;
+                        guessTailsButton.disabled = false;
+                    }
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
